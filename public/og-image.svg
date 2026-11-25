@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#111827"/>
+  <rect x="48" y="48" width="1184" height="544" rx="16" fill="#18202f" stroke="#2d3a4f" stroke-width="2"/>
+  <rect x="96" y="100" width="270" height="36" rx="18" fill="#0f766e" fill-opacity="0.22" stroke="#14b8a6" stroke-width="1.5"/>
+  <text x="118" y="124" fill="#5eead4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="600">developer-assistants</text>
+  <text x="96" y="218" fill="#f9fafb" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="60" font-weight="700">AI Coding Tools</text>
+  <text x="96" y="286" fill="#5eead4" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="44" font-weight="600">Same-Task Benchmark &amp; Stack Selector</text>
+  <text x="96" y="352" fill="#cbd5e1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="24">Compare 16 assistants (Cursor, Copilot, Claude Code, Windsurf, Aider, Cline, TabbyML)</text>
+  <text x="96" y="388" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="24">across 6 identical engineering tasks and export a team decision matrix.</text>
+
+  <rect x="96" y="446" width="240" height="84" rx="10" fill="#0f172a" stroke="#334155"/>
+  <text x="118" y="482" fill="#5eead4" font-family="ui-monospace, monospace" font-size="28" font-weight="700">16 Tools</text>
+  <text x="118" y="512" fill="#94a3b8" font-family="-apple-system, sans-serif" font-size="16">IDEs, CLIs &amp; Self-Hosted</text>
+
+  <rect x="360" y="446" width="240" height="84" rx="10" fill="#0f172a" stroke="#334155"/>
+  <text x="382" y="482" fill="#5eead4" font-family="ui-monospace, monospace" font-size="28" font-weight="700">6 Tasks</text>
+  <text x="382" y="512" fill="#94a3b8" font-family="-apple-system, sans-serif" font-size="16">Identical Prompts &amp; Criteria</text>
+
+  <rect x="624" y="446" width="260" height="84" rx="10" fill="#0f172a" stroke="#334155"/>
+  <text x="646" y="482" fill="#5eead4" font-family="ui-monospace, monospace" font-size="28" font-weight="700">6 Team Stacks</text>
+  <text x="646" y="512" fill="#94a3b8" font-family="-apple-system, sans-serif" font-size="16">Markdown &amp; JSON Export</text>
+
+  <rect x="908" y="446" width="276" height="84" rx="10" fill="#0f766e"/>
+  <text x="932" y="482" fill="#ffffff" font-family="ui-monospace, monospace" font-size="22" font-weight="700">Open Source (MIT)</text>
+  <text x="932" y="512" fill="#ccfbf1" font-family="-apple-system, sans-serif" font-size="16">Inspired by awesome-code-ai</text>
+</svg>
