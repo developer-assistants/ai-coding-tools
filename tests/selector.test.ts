@@ -4,24 +4,24 @@ import { BENCHMARK_TASKS } from '../src/data/tasks';
 import { STACK_PROFILES } from '../src/data/stacks';
 import { COMPARISON_PAIRS } from '../src/data/comparisons';
 import {
+  countStrongTasks,
   exportDecisionMatrixMarkdown,
-  getAverageTaskScore,
   scoreToolsForTeam,
 } from '../src/engine/selector';
 
 describe('AI Coding Tools dataset integrity', () => {
-  it('contains 16 tools with complete evaluations for all 6 benchmark tasks', () => {
+  it('contains 16 tools with complete qualitative evaluations for all 6 benchmark tasks', () => {
     expect(CODING_TOOLS).toHaveLength(16);
     const taskIds = BENCHMARK_TASKS.map((t) => t.id);
+    const validFits = new Set(['Strong', 'Good', 'Partial', 'Limited']);
     for (const tool of CODING_TOOLS) {
       for (const taskId of taskIds) {
         const evalData = tool.tasks[taskId];
         expect(evalData).toBeDefined();
-        expect(evalData.score).toBeGreaterThanOrEqual(1);
-        expect(evalData.score).toBeLessThanOrEqual(100);
+        expect(validFits.has(evalData.fit)).toBe(true);
         expect(evalData.strength.length).toBeGreaterThan(10);
       }
-      expect(getAverageTaskScore(tool)).toBeGreaterThan(40);
+      expect(countStrongTasks(tool)).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -69,10 +69,14 @@ describe('Team stack selector engine', () => {
 
     const top3 = ranked.slice(0, 3).map((r) => r.tool.id);
     expect(top3).not.toContain('cursor');
-    expect(top3.some((id) => ['jetbrains-ai', 'amazon-q-developer', 'augment-code', 'github-copilot'].includes(id))).toBe(true);
+    expect(
+      top3.some((id) =>
+        ['jetbrains-ai', 'amazon-q-developer', 'augment-code', 'github-copilot'].includes(id),
+      ),
+    ).toBe(true);
   });
 
-  it('exports a clean markdown decision table', () => {
+  it('exports a clean markdown decision table with criteria counts', () => {
     const criteria = {
       stack: 'typescript-react' as const,
       editor: 'vscode' as const,
@@ -82,8 +86,8 @@ describe('Team stack selector engine', () => {
     };
     const ranked = scoreToolsForTeam(CODING_TOOLS, criteria);
     const md = exportDecisionMatrixMarkdown(ranked, criteria, 4);
-    expect(md).toContain('# AI Coding Tools Decision Matrix');
-    expect(md).toContain('| Rank | Tool | Score |');
+    expect(md).toContain('# AI coding tools decision matrix');
+    expect(md).toContain('| Rank | Tool | Criteria matched |');
     expect(md).toContain('Cursor');
   });
 });

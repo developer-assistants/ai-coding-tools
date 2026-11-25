@@ -24,7 +24,7 @@ export const STACK_PROFILES: StackProfile[] = [
       {
         question: 'What is the best AI coding tool for TypeScript and React?',
         answer:
-          'Cursor and Claude Code lead for TypeScript and React work. Cursor gives you fast multi-line Tab edits and inline agent diffs in one editor, while Claude Code excels at multi-file features, strict TypeScript refactors, and test loops.',
+          'Cursor and Claude Code lead for TypeScript and React work. Cursor gives you fast multi-line Tab edits and inline agent diffs in one editor, while Claude Code handles multi-file features, strict TypeScript refactors, and test loops reliably.',
       },
       {
         question: 'Should a TypeScript team use Cursor or GitHub Copilot?',

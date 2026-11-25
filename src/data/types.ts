@@ -30,7 +30,6 @@ export type TaskFitRating = 'Strong' | 'Good' | 'Partial' | 'Limited';
 
 export interface TaskEvaluation {
   fit: TaskFitRating;
-  score: number; // 1-100 deterministic rubric score
   workflowMode: string;
   contextScope: string;
   strength: string;

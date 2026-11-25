@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Check, Copy, Download, ShieldCheck, CheckCircle2, XCircle } from 'lucide-react';
 import { CODING_TOOLS } from '../data/tools';
 import { BENCHMARK_TASKS } from '../data/tasks';
 import { STACK_PROFILES } from '../data/stacks';
@@ -15,6 +14,7 @@ import {
   scoreToolsForTeam,
   type TeamSelectorCriteria,
 } from '../engine/selector';
+import { fitBadgeClass } from './TaskComparisonWorkbench';
 
 interface Props {
   initialStack?: StackId;
@@ -81,8 +81,8 @@ export function TeamStackSelector({ initialStack = 'typescript-react', onNavigat
         rank: index + 1,
         id: r.tool.id,
         name: r.tool.name,
-        totalScore: r.totalScore,
-        taskScore: r.taskScore,
+        criteriaMatched: `${r.matchedChecks}/${r.totalChecks}`,
+        taskFit: r.taskFit,
         pricing: r.tool.pricingSummary,
         openSource: r.tool.openSource,
         hosting: r.tool.hosting,
@@ -103,274 +103,241 @@ export function TeamStackSelector({ initialStack = 'typescript-react', onNavigat
 
   return (
     <section id="team-stack-selector" className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-wider text-teal-700">
-            02 / Team stack decision table
+          <h2 className="text-2xl sm:text-3xl">Team stack decision table</h2>
+          <p className="mt-1.5 text-sm console-lede">
+            Filter by editor, privacy model, budget, and priority task, then export for your RFC.
           </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-stone-900">
-            Pick the right AI coding stack for your engineering team
-          </h2>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleCopyMarkdown}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium text-stone-800 hover:bg-stone-50"
-          >
-            {copiedMd ? <Check className="h-3.5 w-3.5 text-teal-700" /> : <Copy className="h-3.5 w-3.5" />}
-            {copiedMd ? 'Copied Markdown table' : 'Copy Markdown RFC table'}
+          <button type="button" onClick={handleCopyMarkdown} className="btn btn--primary">
+            {copiedMd ? 'Copied Markdown table' : 'Copy Markdown table'}
           </button>
-          <button
-            type="button"
-            onClick={handleDownloadJson}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium text-stone-800 hover:bg-stone-50"
-          >
-            <Download className="h-3.5 w-3.5" />
+          <button type="button" onClick={handleDownloadJson} className="btn">
             Export JSON
           </button>
         </div>
       </div>
 
-      {/* Stack presets */}
-      <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-2xs space-y-5">
-        <div>
-          <p className="text-xs font-medium text-stone-600">Quick stack presets:</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {STACK_PROFILES.map((preset) => {
-              const active = criteria.stack === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => applyStackPreset(preset.id)}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                    active
-                      ? 'border-teal-700 bg-teal-50 text-teal-900'
-                      : 'border-stone-200 bg-stone-50 text-stone-700 hover:border-stone-400'
-                  }`}
-                >
-                  {preset.shortTitle}
-                </button>
-              );
-            })}
+      {/* Controls panel */}
+      <div className="console-panel">
+        <div className="p-5 space-y-5">
+          <div className="space-y-2">
+            <span className="console-label">Stack preset</span>
+            <div className="flex flex-wrap gap-2">
+              {STACK_PROFILES.map((preset) => {
+                const active = criteria.stack === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyStackPreset(preset.id)}
+                    aria-pressed={active}
+                    className={active ? 'chip chip--accent' : 'chip'}
+                  >
+                    {preset.shortTitle}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="block space-y-1.5">
+              <span className="console-label">Primary editor</span>
+              <select
+                value={criteria.editor}
+                onChange={(e) =>
+                  setCriteria((prev) => ({
+                    ...prev,
+                    editor: e.target.value as EditorTarget | 'any',
+                  }))
+                }
+                className="console-input"
+              >
+                <option value="vscode">VS Code or fork</option>
+                <option value="jetbrains">JetBrains (IntelliJ, PyCharm, Rider)</option>
+                <option value="terminal">Terminal first</option>
+                <option value="neovim">Neovim or Vim</option>
+                <option value="any">Mixed editors</option>
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="console-label">Privacy and hosting</span>
+              <select
+                value={criteria.hosting}
+                onChange={(e) =>
+                  setCriteria((prev) => ({
+                    ...prev,
+                    hosting: e.target.value as HostingModel,
+                  }))
+                }
+                className="console-input"
+              >
+                <option value="cloud-saas">Cloud SaaS allowed</option>
+                <option value="enterprise-zdr">Enterprise zero-data-retention</option>
+                <option value="self-hosted">Self-hosted or air-gapped only</option>
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="console-label">Budget tier</span>
+              <select
+                value={criteria.budget}
+                onChange={(e) =>
+                  setCriteria((prev) => ({
+                    ...prev,
+                    budget: e.target.value as BudgetTier,
+                  }))
+                }
+                className="console-input"
+              >
+                <option value="free-oss">Free, open source, or BYOK</option>
+                <option value="startup">Startup ($8 to $25 per seat)</option>
+                <option value="mid-market">Mid-market ($20 to $50 per seat)</option>
+                <option value="enterprise">Enterprise governance</option>
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="console-label">Priority task</span>
+              <select
+                value={criteria.priorityTask}
+                onChange={(e) =>
+                  setCriteria((prev) => ({
+                    ...prev,
+                    priorityTask: e.target.value as TaskId,
+                  }))
+                }
+                className="console-input"
+              >
+                {BENCHMARK_TASKS.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.shortTitle}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div
+            className="flex flex-wrap items-center gap-6 pt-4 text-sm"
+            style={{ borderTop: 'var(--rule-hair) solid var(--color-rule)' }}
+          >
+            <label className="inline-flex items-center gap-2 cursor-pointer console-lede">
+              <input
+                type="checkbox"
+                checked={Boolean(criteria.requireOpenSource)}
+                onChange={(e) =>
+                  setCriteria((prev) => ({ ...prev, requireOpenSource: e.target.checked }))
+                }
+                style={{ accentColor: 'var(--color-accent)' }}
+              />
+              Open source only
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer console-lede">
+              <input
+                type="checkbox"
+                checked={Boolean(criteria.requireMcp)}
+                onChange={(e) =>
+                  setCriteria((prev) => ({ ...prev, requireMcp: e.target.checked }))
+                }
+                style={{ accentColor: 'var(--color-accent)' }}
+              />
+              Requires MCP support
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer console-lede">
+              <input
+                type="checkbox"
+                checked={Boolean(criteria.requireInlineAutocomplete)}
+                onChange={(e) =>
+                  setCriteria((prev) => ({
+                    ...prev,
+                    requireInlineAutocomplete: e.target.checked,
+                  }))
+                }
+                style={{ accentColor: 'var(--color-accent)' }}
+              />
+              Requires inline Tab autocomplete
+            </label>
+            {onNavigate && (
+              <a
+                href={`/ai-coding-tools/stacks/${activeProfile.slug}/`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onNavigate(`/stacks/${activeProfile.slug}/`);
+                }}
+                className="ml-auto text-sm console-link"
+              >
+                Read {activeProfile.shortTitle} guide
+              </a>
+            )}
           </div>
         </div>
 
-        {/* Fine-grained controls */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block space-y-1">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-stone-500">
-              Primary editor
-            </span>
-            <select
-              value={criteria.editor}
-              onChange={(e) =>
-                setCriteria((prev) => ({
-                  ...prev,
-                  editor: e.target.value as EditorTarget | 'any',
-                }))
-              }
-              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900"
-            >
-              <option value="vscode">VS Code / VS Code fork</option>
-              <option value="jetbrains">JetBrains (IntelliJ / PyCharm / Rider)</option>
-              <option value="terminal">Terminal / CLI first</option>
-              <option value="neovim">Neovim / Vim</option>
-              <option value="any">Mixed IDEs (any)</option>
-            </select>
-          </label>
-
-          <label className="block space-y-1">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-stone-500">
-              Privacy &amp; hosting
-            </span>
-            <select
-              value={criteria.hosting}
-              onChange={(e) =>
-                setCriteria((prev) => ({
-                  ...prev,
-                  hosting: e.target.value as HostingModel,
-                }))
-              }
-              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900"
-            >
-              <option value="cloud-saas">Cloud SaaS allowed</option>
-              <option value="enterprise-zdr">Enterprise Zero-Data-Retention (ZDR)</option>
-              <option value="self-hosted">Self-hosted / VPC / Air-gapped only</option>
-            </select>
-          </label>
-
-          <label className="block space-y-1">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-stone-500">
-              Team budget tier
-            </span>
-            <select
-              value={criteria.budget}
-              onChange={(e) =>
-                setCriteria((prev) => ({
-                  ...prev,
-                  budget: e.target.value as BudgetTier,
-                }))
-              }
-              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900"
-            >
-              <option value="free-oss">Free / Open Source / BYOK</option>
-              <option value="startup">Startup ($10-$20/seat)</option>
-              <option value="mid-market">Mid-Market ($20-$40/seat)</option>
-              <option value="enterprise">Enterprise governance</option>
-            </select>
-          </label>
-
-          <label className="block space-y-1">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-stone-500">
-              Highest-priority task
-            </span>
-            <select
-              value={criteria.priorityTask}
-              onChange={(e) =>
-                setCriteria((prev) => ({
-                  ...prev,
-                  priorityTask: e.target.value as TaskId,
-                }))
-              }
-              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900"
-            >
-              {BENCHMARK_TASKS.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.shortTitle}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {/* Hard boolean filters */}
-        <div className="flex flex-wrap items-center gap-5 border-t border-stone-200 pt-4 text-xs text-stone-700">
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={Boolean(criteria.requireOpenSource)}
-              onChange={(e) =>
-                setCriteria((prev) => ({ ...prev, requireOpenSource: e.target.checked }))
-              }
-              className="h-4 w-4 rounded border-stone-300 accent-teal-700"
-            />
-            Open source only
-          </label>
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={Boolean(criteria.requireMcp)}
-              onChange={(e) =>
-                setCriteria((prev) => ({ ...prev, requireMcp: e.target.checked }))
-              }
-              className="h-4 w-4 rounded border-stone-300 accent-teal-700"
-            />
-            Requires MCP support
-          </label>
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={Boolean(criteria.requireInlineAutocomplete)}
-              onChange={(e) =>
-                setCriteria((prev) => ({
-                  ...prev,
-                  requireInlineAutocomplete: e.target.checked,
-                }))
-              }
-              className="h-4 w-4 rounded border-stone-300 accent-teal-700"
-            />
-            Requires built-in Tab autocomplete
-          </label>
-          {onNavigate && (
-            <a
-              href={`/ai-coding-tools/stacks/${activeProfile.slug}/`}
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigate(`/stacks/${activeProfile.slug}/`);
-              }}
-              className="ml-auto font-medium text-teal-700 hover:underline"
-            >
-              Read full {activeProfile.shortTitle} guide
-            </a>
-          )}
+        <div className="console-well px-5 py-3.5 text-sm">
+          <span style={{ color: 'var(--color-accent)' }} className="font-medium">
+            Rollout note:{' '}
+          </span>
+          <span className="console-lede">{activeProfile.rolloutNotes}</span>
         </div>
       </div>
 
-      {/* Stack rollout note */}
-      <div className="rounded-xl border border-teal-200/80 bg-teal-50/50 p-4 text-sm text-stone-800 flex items-start gap-3">
-        <ShieldCheck className="h-5 w-5 shrink-0 text-teal-700 mt-0.5" />
-        <div>
-          <span className="font-semibold text-stone-900">Practical rollout pattern: </span>
-          {activeProfile.rolloutNotes}
-        </div>
-      </div>
-
-      {/* Ranked recommendation table */}
-      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-2xs">
-        <table className="w-full min-w-[780px] border-collapse text-left text-sm">
+      {/* Ranked table */}
+      <div className="console-panel overflow-x-auto">
+        <table className="console-table min-w-[780px]">
           <thead>
-            <tr className="border-b border-stone-200 bg-stone-50 font-mono text-[11px] uppercase tracking-wider text-stone-500">
-              <th className="px-4 py-3">Rank</th>
-              <th className="px-4 py-3">Tool</th>
-              <th className="px-4 py-3">Stack score</th>
-              <th className="px-4 py-3">Priority task</th>
-              <th className="px-4 py-3">Pricing</th>
-              <th className="px-4 py-3">Why it fits / watch out</th>
+            <tr>
+              <th>Rank</th>
+              <th>Tool</th>
+              <th>Criteria matched</th>
+              <th>Task fit</th>
+              <th>Pricing (2026)</th>
+              <th>Fit and main tradeoff</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100">
+          <tbody>
             {eligibleResults.map((row, index) => (
-              <tr key={row.tool.id} className="hover:bg-stone-50/70">
-                <td className="px-4 py-3.5 font-mono text-xs font-semibold text-stone-500">
-                  #{index + 1}
-                </td>
-                <td className="px-4 py-3.5">
+              <tr key={row.tool.id}>
+                <td className="measured console-muted">#{index + 1}</td>
+                <td>
                   <a
                     href={row.tool.website}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-semibold text-stone-900 hover:text-teal-700 hover:underline"
+                    className="console-link font-medium"
                   >
                     {row.tool.name}
                   </a>
-                  <div className="mt-0.5 flex flex-wrap gap-1.5 font-mono text-[11px] text-stone-500">
-                    <span>{row.tool.openSource ? 'OSS' : 'Commercial'}</span>
-                    <span>•</span>
-                    <span>{row.tool.editors.join(', ')}</span>
-                  </div>
+                  <p className="mt-1 text-xs console-muted">
+                    {row.tool.openSource ? 'Open source' : 'Proprietary'},{' '}
+                    {row.tool.editors.join(', ')}
+                  </p>
                 </td>
-                <td className="px-4 py-3.5 w-36">
-                  <div className="flex items-center justify-between font-mono text-xs font-semibold text-stone-900">
-                    <span>{row.totalScore}/100</span>
-                  </div>
-                  <div className="score-bar-track mt-1">
-                    <div className="score-bar-fill" style={{ width: `${row.totalScore}%` }} />
-                  </div>
+                <td className="measured" style={{ color: 'var(--color-cool)' }}>
+                  {row.matchedChecks}/{row.totalChecks}
                 </td>
-                <td className="px-4 py-3.5 font-mono text-xs text-stone-800">
-                  {row.tool.tasks[criteria.priorityTask].fit} ({row.taskScore})
+                <td>
+                  <span className={fitBadgeClass(row.taskFit)}>{row.taskFit}</span>
                 </td>
-                <td className="px-4 py-3.5 text-xs text-stone-700 max-w-[200px]">
+                <td className="measured text-xs console-lede max-w-[210px]">
                   {row.tool.pricingSummary}
                 </td>
-                <td className="px-4 py-3.5 text-xs text-stone-700 space-y-1 max-w-sm">
+                <td className="text-xs space-y-1 max-w-sm">
                   {row.reasons[0] && (
-                    <p className="flex items-start gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-teal-700 mt-0.5" />
-                      <span>{row.reasons[0]}</span>
-                    </p>
+                    <p style={{ color: 'var(--color-ink)' }}>{row.reasons[0]}</p>
                   )}
-                  <p className="text-stone-500">{row.caveats[0] ?? row.tool.watchOut}</p>
+                  <p className="console-muted">{row.caveats[0] ?? row.tool.watchOut}</p>
                 </td>
               </tr>
             ))}
 
             {eligibleResults.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-stone-500">
-                  No tool satisfies every active hard filter at once. Uncheck one constraint above to see close matches.
+                <td colSpan={6} className="text-center py-8 console-muted">
+                  No tool satisfies every active hard filter. Relax one constraint above to see close matches.
                 </td>
               </tr>
             )}
@@ -379,9 +346,8 @@ export function TeamStackSelector({ initialStack = 'typescript-react', onNavigat
       </div>
 
       {filteredOut.length > 0 && (
-        <p className="flex items-center gap-1.5 text-xs text-stone-500">
-          <XCircle className="h-3.5 w-3.5 text-stone-400" />
-          Excluded {filteredOut.length} tools that did not satisfy your hard hosting, open-source, MCP, or autocomplete constraints:{' '}
+        <p className="text-xs console-muted">
+          Excluded {filteredOut.length} tools by hard hosting, license, MCP, or autocomplete filters:{' '}
           {filteredOut.map((f) => f.tool.name).join(', ')}.
         </p>
       )}

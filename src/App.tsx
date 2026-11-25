@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Code2, ExternalLink, GitCompare, Layers } from 'lucide-react';
 import { CODING_TOOLS } from './data/tools';
 import { BENCHMARK_TASKS } from './data/tasks';
 import { STACK_PROFILES } from './data/stacks';
 import { COMPARISON_PAIRS } from './data/comparisons';
-import { TaskComparisonWorkbench } from './components/TaskComparisonWorkbench';
+import {
+  TaskComparisonWorkbench,
+  fitBadgeClass,
+} from './components/TaskComparisonWorkbench';
 import { TeamStackSelector } from './components/TeamStackSelector';
 import { ToolMatrixTable } from './components/ToolMatrixTable';
+import type { TaskId } from './data/types';
+import { getFitWeight } from './engine/selector';
 
 const BASE_PATH = '/ai-coding-tools';
 const REPO_URL = 'https://github.com/developer-assistants/ai-coding-tools';
@@ -24,6 +28,7 @@ function normalizePath(pathname: string): string {
 
 export default function App() {
   const [route, setRoute] = useState<string>(() => normalizePath(window.location.pathname));
+  const [heroTaskId, setHeroTaskId] = useState<TaskId>('multi-file-feature');
 
   useEffect(() => {
     function onPopState() {
@@ -53,7 +58,6 @@ export default function App() {
     };
   }
 
-  // Match dynamic routes
   const compareMatch = route.match(/^\/compare\/([^/]+)\/$/);
   const stackMatch = route.match(/^\/stacks\/([^/]+)\/$/);
   const taskMatch = route.match(/^\/tasks\/([^/]+)\/$/);
@@ -68,204 +72,263 @@ export default function App() {
     ? BENCHMARK_TASKS.find((t) => t.slug === taskMatch[1])
     : undefined;
 
+  const heroTools = ['cursor', 'claude-code', 'github-copilot', 'tabby-ml']
+    .map((id) => CODING_TOOLS.find((t) => t.id === id))
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
+
+  const heroTask =
+    BENCHMARK_TASKS.find((t) => t.id === heroTaskId) ?? BENCHMARK_TASKS[0];
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top navigation */}
-      <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur-xs">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <a
-            {...linkProps('/')}
-            className="flex items-center gap-2 font-semibold text-stone-900"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-700 text-white">
-              <Code2 className="h-4 w-4" />
-            </span>
-            <span className="tracking-tight">AI Coding Tools</span>
-          </a>
+      <header className="console-header">
+        <div className="console-container flex items-center justify-between gap-4 py-3.5">
+          <div className="flex items-center gap-8">
+            <a
+              {...linkProps('/')}
+              className="text-base font-medium no-underline whitespace-nowrap"
+              style={{ color: 'var(--color-ink)' }}
+            >
+              AI Coding Tools
+            </a>
 
-          <nav aria-label="Main navigation" className="hidden md:flex items-center gap-6 text-sm text-stone-600">
-            <a {...linkProps('/')} className={route === '/' ? 'font-semibold text-teal-800' : 'hover:text-stone-900'}>
-              Workbench
-            </a>
-            <a {...linkProps('/compare/')} className={route.startsWith('/compare/') ? 'font-semibold text-teal-800' : 'hover:text-stone-900'}>
-              Comparisons
-            </a>
-            <a {...linkProps('/stacks/')} className={route.startsWith('/stacks/') ? 'font-semibold text-teal-800' : 'hover:text-stone-900'}>
-              Team Stacks
-            </a>
-            <a {...linkProps('/tasks/')} className={route.startsWith('/tasks/') ? 'font-semibold text-teal-800' : 'hover:text-stone-900'}>
-              Task Benchmarks
-            </a>
-            <a {...linkProps('/tools/')} className={route === '/tools/' ? 'font-semibold text-teal-800' : 'hover:text-stone-900'}>
-              All 16 Tools
-            </a>
-          </nav>
+            <nav aria-label="Primary navigation" className="hidden lg:flex items-center gap-6">
+              <a
+                {...linkProps('/')}
+                aria-current={route === '/' ? 'page' : undefined}
+                className="console-nav-link"
+              >
+                Workbench
+              </a>
+              <a
+                {...linkProps('/compare/')}
+                aria-current={route.startsWith('/compare/') ? 'page' : undefined}
+                className="console-nav-link"
+              >
+                Comparisons
+              </a>
+              <a
+                {...linkProps('/stacks/')}
+                aria-current={route.startsWith('/stacks/') ? 'page' : undefined}
+                className="console-nav-link"
+              >
+                Team stacks
+              </a>
+              <a
+                {...linkProps('/tasks/')}
+                aria-current={route.startsWith('/tasks/') ? 'page' : undefined}
+                className="console-nav-link"
+              >
+                Task benchmarks
+              </a>
+              <a
+                {...linkProps('/tools/')}
+                aria-current={route === '/tools/' ? 'page' : undefined}
+                className="console-nav-link"
+              >
+                All 16 tools
+              </a>
+            </nav>
+          </div>
 
-          <a
-            href={REPO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-stone-50 px-3 py-1.5 text-xs font-medium text-stone-800 hover:bg-stone-100"
-          >
-            GitHub
-            <ExternalLink className="h-3.5 w-3.5" />
+          <a href={REPO_URL} target="_blank" rel="noreferrer" className="btn">
+            GitHub repo
           </a>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6">
-        {/* 1. Head-to-head comparison detail page */}
+      <main className="console-container flex-1 py-12">
         {activePair ? (
           <ComparisonDetailView pair={activePair} linkProps={linkProps} navigate={navigate} />
         ) : activeStack ? (
-          /* 2. Stack profile detail page */
           <StackDetailView stack={activeStack} linkProps={linkProps} navigate={navigate} />
         ) : activeTask ? (
-          /* 3. Task benchmark detail page */
           <TaskDetailView task={activeTask} linkProps={linkProps} navigate={navigate} />
         ) : route === '/compare/' ? (
-          /* 4. Comparisons hub */
           <div className="space-y-8">
-            <div>
-              <a {...linkProps('/')} className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline">
-                <ArrowLeft className="h-3.5 w-3.5" /> Back to workbench
+            <div className="space-y-3 max-w-3xl">
+              <a {...linkProps('/')} className="text-sm console-link">
+                Back to workbench
               </a>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-stone-900">
-                Head-to-head AI coding tool comparisons
-              </h1>
-              <p className="mt-2 max-w-3xl text-stone-600">
-                Direct breakdowns of the most common evaluation matchups across multi-file features, refactoring, debugging, test generation, PR review, and inline autocomplete.
+              <h1 className="text-3xl sm:text-4xl">Head-to-head AI coding tool comparisons</h1>
+              <p className="console-lede">
+                Direct breakdowns of common team evaluations across multi-file features, refactoring, debugging, test generation, PR review, and inline autocomplete.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="console-grid grid-cols-1 md:grid-cols-2">
               {COMPARISON_PAIRS.map((pair) => (
                 <a
                   key={pair.slug}
                   {...linkProps(`/compare/${pair.slug}/`)}
-                  className="group rounded-xl border border-stone-200 bg-white p-5 hover:border-teal-600 transition"
+                  className="p-5 block no-underline hover:opacity-95"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-lg font-semibold text-stone-900 group-hover:text-teal-800">
-                      {pair.title}
-                    </h2>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-stone-400 group-hover:text-teal-700" />
-                  </div>
-                  <p className="mt-2 text-sm text-stone-600">{pair.summary}</p>
+                  <h2 className="text-lg">{pair.title}</h2>
+                  <p className="mt-2 text-sm console-muted">{pair.summary}</p>
                 </a>
               ))}
             </div>
           </div>
         ) : route === '/stacks/' ? (
-          /* 5. Stacks hub */
           <div className="space-y-8">
-            <div>
-              <a {...linkProps('/')} className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline">
-                <ArrowLeft className="h-3.5 w-3.5" /> Back to workbench
+            <div className="space-y-3 max-w-3xl">
+              <a {...linkProps('/')} className="text-sm console-link">
+                Back to workbench
               </a>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-stone-900">
-                AI coding tool recommendations by team stack
-              </h1>
-              <p className="mt-2 max-w-3xl text-stone-600">
-                Choose a stack profile to see matching IDEs, hosting models, rollout advice, and ranked tools.
+              <h1 className="text-3xl sm:text-4xl">AI coding tool recommendations by team stack</h1>
+              <p className="console-lede">
+                Pick a stack profile to inspect native editor fit, hosting models, rollout patterns, and ranked tools.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="console-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {STACK_PROFILES.map((stack) => (
                 <a
                   key={stack.slug}
                   {...linkProps(`/stacks/${stack.slug}/`)}
-                  className="group rounded-xl border border-stone-200 bg-white p-5 hover:border-teal-600 transition"
+                  className="p-5 block no-underline"
                 >
-                  <h2 className="text-base font-semibold text-stone-900 group-hover:text-teal-800">
-                    {stack.title}
-                  </h2>
-                  <p className="mt-2 text-sm text-stone-600">{stack.description}</p>
-                  <p className="mt-3 font-mono text-xs text-teal-700">
-                    Top picks: {stack.topRecommendations.map((id) => CODING_TOOLS.find((t) => t.id === id)?.name).filter(Boolean).join(', ')}
+                  <h2 className="text-lg">{stack.title}</h2>
+                  <p className="mt-2 text-sm console-muted">{stack.description}</p>
+                  <p className="mt-3 measured text-xs" style={{ color: 'var(--color-cool)' }}>
+                    Top picks:{' '}
+                    {stack.topRecommendations
+                      .map((id) => CODING_TOOLS.find((t) => t.id === id)?.name)
+                      .filter(Boolean)
+                      .join(', ')}
                   </p>
                 </a>
               ))}
             </div>
           </div>
         ) : route === '/tasks/' ? (
-          /* 6. Tasks hub */
           <div className="space-y-8">
-            <div>
-              <a {...linkProps('/')} className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline">
-                <ArrowLeft className="h-3.5 w-3.5" /> Back to workbench
+            <div className="space-y-3 max-w-3xl">
+              <a {...linkProps('/')} className="text-sm console-link">
+                Back to workbench
               </a>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-stone-900">
-                Identical engineering task benchmarks
-              </h1>
-              <p className="mt-2 max-w-3xl text-stone-600">
-                Six repeatable tasks used to compare all 16 AI coding tools under identical prompts and verification criteria.
+              <h1 className="text-3xl sm:text-4xl">Identical engineering task benchmarks</h1>
+              <p className="console-lede">
+                Six repeatable tasks used to evaluate all 16 AI coding tools under identical prompts and verification criteria.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="console-grid grid-cols-1 md:grid-cols-2">
               {BENCHMARK_TASKS.map((task) => (
                 <a
                   key={task.slug}
                   {...linkProps(`/tasks/${task.slug}/`)}
-                  className="group rounded-xl border border-stone-200 bg-white p-5 hover:border-teal-600 transition"
+                  className="p-5 block no-underline"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-lg font-semibold text-stone-900 group-hover:text-teal-800">
-                      {task.title}
-                    </h2>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-stone-400 group-hover:text-teal-700" />
-                  </div>
-                  <p className="mt-2 text-sm text-stone-600">{task.summary}</p>
-                  <p className="mt-3 font-mono text-xs text-stone-500">{task.filesTouched}</p>
+                  <h2 className="text-lg">{task.title}</h2>
+                  <p className="mt-2 text-sm console-muted">{task.summary}</p>
+                  <p className="mt-3 measured text-xs" style={{ color: 'var(--color-cool)' }}>
+                    {task.filesTouched}
+                  </p>
                 </a>
               ))}
             </div>
           </div>
         ) : route === '/tools/' ? (
-          /* 7. Full tools directory */
           <div className="space-y-8">
-            <div>
-              <a {...linkProps('/')} className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline">
-                <ArrowLeft className="h-3.5 w-3.5" /> Back to workbench
+            <div className="space-y-3">
+              <a {...linkProps('/')} className="text-sm console-link">
+                Back to workbench
               </a>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-stone-900">
-                All 16 AI coding tools compared
-              </h1>
+              <h1 className="text-3xl sm:text-4xl">All 16 AI coding tools compared</h1>
             </div>
             <ToolMatrixTable />
           </div>
         ) : (
-          /* 8. Home Workbench */
-          <div className="space-y-16">
-            {/* Hero */}
-            <section className="max-w-4xl space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 font-mono text-xs text-stone-600">
-                <span>16 tools</span>
-                <span>•</span>
-                <span>6 identical tasks</span>
-                <span>•</span>
-                <span>6 team stacks</span>
+          <div className="space-y-20">
+            {/* Stage Hero: head on cols 1-5, live Signature console panel on cols 6-12 */}
+            <section className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center py-4">
+              <div className="lg:col-span-5 space-y-5">
+                <h1 className="text-4xl sm:text-5xl">
+                  Compare AI coding tools on real tasks
+                </h1>
+                <p className="text-base sm:text-lg console-lede">
+                  Evaluate 16 assistants on six identical tasks and match your stack.
+                </p>
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <a href="#same-task-comparison" className="btn btn--primary">
+                    Compare on identical tasks
+                  </a>
+                  <a href="#team-stack-selector" className="btn">
+                    Match team stack
+                  </a>
+                </div>
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-5xl">
-                AI coding tools comparison and team stack selector
-              </h1>
-              <p className="text-base text-stone-600 sm:text-lg">
-                Compare 16 AI coding assistants (Cursor, GitHub Copilot, Claude Code, Windsurf, OpenAI Codex CLI, Aider, Cline, Continue, TabbyML, and enterprise tools) on the exact same engineering tasks, then filter by your editor, privacy rules, and language stack to export a Markdown decision table.
-              </p>
-              <div className="flex flex-wrap gap-3 pt-1">
-                <a
-                  href="#same-task-comparison"
-                  className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-800"
+
+              {/* Signature: live same-task comparison record in the hero */}
+              <div className="lg:col-span-7 console-panel">
+                <div
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                  style={{ borderBottom: 'var(--rule-hair) solid var(--color-rule)' }}
                 >
-                  <GitCompare className="h-4 w-4" />
-                  Compare on identical tasks
-                </a>
-                <a
-                  href="#team-stack-selector"
-                  className="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                  <span className="text-sm font-medium">{heroTask.title}</span>
+                  <span className="measured text-xs console-muted">{heroTask.filesTouched}</span>
+                </div>
+
+                <div
+                  className="flex overflow-x-auto"
+                  style={{
+                    gap: 'var(--rule-hair)',
+                    backgroundColor: 'var(--color-rule)',
+                    borderBottom: 'var(--rule-hair) solid var(--color-rule)',
+                  }}
                 >
-                  <Layers className="h-4 w-4" />
-                  Open team stack selector
-                </a>
+                  {BENCHMARK_TASKS.slice(0, 4).map((t) => {
+                    const active = t.id === heroTaskId;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setHeroTaskId(t.id)}
+                        aria-pressed={active}
+                        className="console-tab flex-1"
+                        style={{
+                          backgroundColor: active
+                            ? 'var(--color-cool-soft)'
+                            : 'var(--color-paper-2)',
+                          color: active ? 'var(--color-ink)' : 'var(--color-muted)',
+                        }}
+                      >
+                        {t.shortTitle}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <table className="console-table">
+                  <thead>
+                    <tr>
+                      <th>Tool</th>
+                      <th>Fit</th>
+                      <th>Workflow mode</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {heroTools.map((tool) => {
+                      const ev = tool.tasks[heroTaskId];
+                      return (
+                        <tr key={tool.id}>
+                          <td className="font-medium">{tool.name}</td>
+                          <td>
+                            <span className={fitBadgeClass(ev.fit)}>{ev.fit}</span>
+                          </td>
+                          <td className="text-xs console-lede">{ev.workflowMode}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                <div className="console-well px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span style={{ color: 'var(--color-accent)' }}>
+                    Verified November 2026 pricing and capabilities
+                  </span>
+                  <span className="measured console-muted">
+                    Successor to sourcegraph/awesome-code-ai
+                  </span>
+                </div>
               </div>
             </section>
 
@@ -275,46 +338,52 @@ export default function App() {
 
             <ToolMatrixTable />
 
-            {/* Internal linking hub for comparisons & stacks */}
-            <section className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              <div className="rounded-xl border border-stone-200 bg-white p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-stone-900">Head-to-head comparisons</h2>
-                  <a {...linkProps('/compare/')} className="text-xs font-medium text-teal-700 hover:underline">
-                    View all 8
+            {/* Internal linking hub */}
+            <section className="console-grid grid-cols-1 lg:grid-cols-2">
+              <div className="p-6 space-y-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h2 className="text-xl">Head-to-head comparisons</h2>
+                  <a {...linkProps('/compare/')} className="text-sm console-link whitespace-nowrap">
+                    All 8
                   </a>
                 </div>
-                <ul className="divide-y divide-stone-100 text-sm">
+                <ul>
                   {COMPARISON_PAIRS.map((pair) => (
-                    <li key={pair.slug} className="py-2.5">
+                    <li
+                      key={pair.slug}
+                      className="py-2.5"
+                      style={{ borderBottom: 'var(--rule-hair) solid var(--color-rule)' }}
+                    >
                       <a
                         {...linkProps(`/compare/${pair.slug}/`)}
-                        className="flex items-center justify-between gap-2 text-stone-800 hover:text-teal-700"
+                        className="text-sm console-link whitespace-nowrap"
                       >
-                        <span className="font-medium">{pair.title.split(':')[0]}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-stone-400" />
+                        {pair.title.split(':')[0].replace('OpenAI ', '').replace(' Developer', '')}
                       </a>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="rounded-xl border border-stone-200 bg-white p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-stone-900">Guides by team stack</h2>
-                  <a {...linkProps('/stacks/')} className="text-xs font-medium text-teal-700 hover:underline">
-                    View all 6
+              <div className="p-6 space-y-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h2 className="text-xl">Guides by team stack</h2>
+                  <a {...linkProps('/stacks/')} className="text-sm console-link whitespace-nowrap">
+                    All 6
                   </a>
                 </div>
-                <ul className="divide-y divide-stone-100 text-sm">
+                <ul>
                   {STACK_PROFILES.map((stack) => (
-                    <li key={stack.slug} className="py-2.5">
+                    <li
+                      key={stack.slug}
+                      className="py-2.5"
+                      style={{ borderBottom: 'var(--rule-hair) solid var(--color-rule)' }}
+                    >
                       <a
                         {...linkProps(`/stacks/${stack.slug}/`)}
-                        className="flex items-center justify-between gap-2 text-stone-800 hover:text-teal-700"
+                        className="text-sm console-link whitespace-nowrap"
                       >
-                        <span className="font-medium">{stack.title}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-stone-400" />
+                        {stack.shortTitle}
                       </a>
                     </li>
                   ))}
@@ -323,31 +392,31 @@ export default function App() {
             </section>
 
             {/* FAQ section */}
-            <section className="rounded-xl border border-stone-200 bg-white p-6 space-y-5">
-              <h2 className="text-xl font-semibold text-stone-900">Frequently asked questions</h2>
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold text-stone-900">
+            <section className="space-y-5">
+              <h2 className="text-2xl">Frequently asked questions</h2>
+              <div className="console-grid grid-cols-1 md:grid-cols-3">
+                <div className="p-5 space-y-2">
+                  <h3 className="text-base">
                     Which AI coding tool is best for multi-file features?
                   </h3>
-                  <p className="text-sm text-stone-600">
-                    Claude Code, Cursor, OpenAI Codex CLI, Cline, and Windsurf handle multi-file features best because they search the repo, edit coordinated files, and run tests in a loop.
+                  <p className="text-sm console-muted">
+                    Claude Code, Cursor, OpenAI Codex CLI, Cline, and Windsurf handle multi-file features well because they search the repo, edit coordinated files, and run tests in a loop.
                   </p>
                 </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold text-stone-900">
+                <div className="p-5 space-y-2">
+                  <h3 className="text-base">
                     What is the best self-hosted alternative to GitHub Copilot?
                   </h3>
-                  <p className="text-sm text-stone-600">
-                    TabbyML provides a self-hosted Rust server for private inline autocomplete and codebase Q&amp;A. Continue connects VS Code and JetBrains to Ollama, vLLM, or private VPC models.
+                  <p className="text-sm console-muted">
+                    TabbyML runs as a single Rust server for private inline autocomplete and codebase Q&amp;A. Continue connects VS Code and JetBrains to Ollama, vLLM, or private VPC endpoints.
                   </p>
                 </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold text-stone-900">
+                <div className="p-5 space-y-2">
+                  <h3 className="text-base">
                     How is this related to sourcegraph/awesome-code-ai?
                   </h3>
-                  <p className="text-sm text-stone-600">
-                    Sourcegraph archived awesome-code-ai after cataloging early AI coding links. This workbench turns the active tools from that ecosystem into a side-by-side task benchmark and stack selector.
+                  <p className="text-sm console-muted">
+                    Sourcegraph archived awesome-code-ai after cataloging early AI coding links. This workbench turns the active tools from that ecosystem into a same-task comparison and stack selector.
                   </p>
                 </div>
               </div>
@@ -356,25 +425,40 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <footer className="console-footer">
+        <div className="console-container flex flex-col gap-3 py-6 text-xs console-muted sm:flex-row sm:items-center sm:justify-between">
           <p>
             Maintained by{' '}
-            <a href="https://github.com/developer-assistants" target="_blank" rel="noreferrer" className="underline hover:text-stone-800">
+            <a
+              href="https://github.com/developer-assistants"
+              target="_blank"
+              rel="noreferrer"
+              className="console-link"
+            >
               developer-assistants
             </a>
             . Built as a practical successor to{' '}
-            <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="underline hover:text-stone-800">
+            <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="console-link">
               sourcegraph/awesome-code-ai
             </a>
             .
           </p>
-          <div className="flex flex-wrap gap-4">
-            <a {...linkProps('/compare/')} className="hover:text-stone-900">Comparisons</a>
-            <a {...linkProps('/stacks/')} className="hover:text-stone-900">Team Stacks</a>
-            <a {...linkProps('/tasks/')} className="hover:text-stone-900">Tasks</a>
-            <a href={`${BASE_PATH}/llms.txt`} className="hover:text-stone-900">llms.txt</a>
-            <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:text-stone-900">GitHub Repo</a>
+          <div className="flex flex-wrap gap-5">
+            <a {...linkProps('/compare/')} className="console-nav-link">
+              Comparisons
+            </a>
+            <a {...linkProps('/stacks/')} className="console-nav-link">
+              Team stacks
+            </a>
+            <a {...linkProps('/tasks/')} className="console-nav-link">
+              Tasks
+            </a>
+            <a href={`${BASE_PATH}/llms.txt`} className="console-nav-link">
+              llms.txt
+            </a>
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className="console-nav-link">
+              GitHub repo
+            </a>
           </div>
         </div>
       </footer>
@@ -388,50 +472,56 @@ function ComparisonDetailView({
   navigate,
 }: {
   pair: (typeof COMPARISON_PAIRS)[number];
-  linkProps: (r: string) => { href: string; onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void };
+  linkProps: (r: string) => {
+    href: string;
+    onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  };
   navigate: (r: string) => void;
 }) {
   const toolA = CODING_TOOLS.find((t) => t.id === pair.toolAId)!;
   const toolB = CODING_TOOLS.find((t) => t.id === pair.toolBId)!;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       <div className="space-y-3 max-w-4xl">
-        <a {...linkProps('/compare/')} className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline">
-          <ArrowLeft className="h-3.5 w-3.5" /> All comparisons
+        <a {...linkProps('/compare/')} className="text-sm console-link">
+          All comparisons
         </a>
-        <h1 className="text-3xl font-semibold tracking-tight text-stone-900">{pair.title}</h1>
-        <p className="text-base text-stone-600">{pair.summary}</p>
+        <h1 className="text-3xl sm:text-4xl">{pair.title}</h1>
+        <p className="text-base console-lede">{pair.summary}</p>
       </div>
 
-      {/* Head-to-head task matrix */}
-      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-2xs">
-        <table className="w-full min-w-[700px] border-collapse text-left text-sm">
+      <div className="console-panel overflow-x-auto">
+        <table className="console-table min-w-[700px]">
           <thead>
-            <tr className="border-b border-stone-200 bg-stone-50 font-mono text-[11px] uppercase tracking-wider text-stone-500">
-              <th className="px-4 py-3">Identical task</th>
-              <th className="px-4 py-3">{toolA.name}</th>
-              <th className="px-4 py-3">{toolB.name}</th>
+            <tr>
+              <th>Identical task</th>
+              <th>{toolA.name}</th>
+              <th>{toolB.name}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100">
+          <tbody>
             {BENCHMARK_TASKS.map((task) => {
               const a = toolA.tasks[task.id];
               const b = toolB.tasks[task.id];
               return (
                 <tr key={task.id}>
-                  <td className="px-4 py-3.5 font-medium text-stone-900 w-56">
-                    <a {...linkProps(`/tasks/${task.slug}/`)} className="hover:text-teal-700 hover:underline">
+                  <td className="font-medium w-56">
+                    <a {...linkProps(`/tasks/${task.slug}/`)} className="console-link">
                       {task.shortTitle}
                     </a>
                   </td>
-                  <td className="px-4 py-3.5 text-xs text-stone-700">
-                    <span className="font-mono font-semibold text-stone-900">{a.fit} ({a.score}/100)</span>
-                    <p className="mt-1">{a.strength}</p>
+                  <td className="text-xs space-y-1.5">
+                    <div>
+                      <span className={fitBadgeClass(a.fit)}>{a.fit}</span>
+                    </div>
+                    <p className="console-lede">{a.strength}</p>
                   </td>
-                  <td className="px-4 py-3.5 text-xs text-stone-700">
-                    <span className="font-mono font-semibold text-stone-900">{b.fit} ({b.score}/100)</span>
-                    <p className="mt-1">{b.strength}</p>
+                  <td className="text-xs space-y-1.5">
+                    <div>
+                      <span className={fitBadgeClass(b.fit)}>{b.fit}</span>
+                    </div>
+                    <p className="console-lede">{b.strength}</p>
                   </td>
                 </tr>
               );
@@ -440,18 +530,18 @@ function ComparisonDetailView({
         </table>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="rounded-xl border border-stone-200 bg-white p-5 space-y-3">
-          <h2 className="text-lg font-semibold text-stone-900">When to pick {toolA.name}</h2>
-          <ul className="space-y-2 text-sm text-stone-700 list-disc pl-5">
+      <div className="console-grid grid-cols-1 md:grid-cols-2">
+        <div className="p-6 space-y-3">
+          <h2 className="text-lg">When to pick {toolA.name}</h2>
+          <ul className="space-y-2 text-sm console-lede list-disc pl-5">
             {pair.whenToPickA.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
         </div>
-        <div className="rounded-xl border border-stone-200 bg-white p-5 space-y-3">
-          <h2 className="text-lg font-semibold text-stone-900">When to pick {toolB.name}</h2>
-          <ul className="space-y-2 text-sm text-stone-700 list-disc pl-5">
+        <div className="p-6 space-y-3">
+          <h2 className="text-lg">When to pick {toolB.name}</h2>
+          <ul className="space-y-2 text-sm console-lede list-disc pl-5">
             {pair.whenToPickB.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -459,9 +549,11 @@ function ComparisonDetailView({
         </div>
       </div>
 
-      <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-5">
-        <h2 className="text-base font-semibold text-stone-900">Verdict</h2>
-        <p className="mt-1 text-sm text-stone-700">{pair.verdict}</p>
+      <div className="console-panel p-6 space-y-2">
+        <h2 className="text-lg" style={{ color: 'var(--color-accent)' }}>
+          Verdict
+        </h2>
+        <p className="text-sm console-lede">{pair.verdict}</p>
       </div>
 
       <TaskComparisonWorkbench
@@ -478,27 +570,30 @@ function StackDetailView({
   navigate,
 }: {
   stack: (typeof STACK_PROFILES)[number];
-  linkProps: (r: string) => { href: string; onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void };
+  linkProps: (r: string) => {
+    href: string;
+    onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  };
   navigate: (r: string) => void;
 }) {
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       <div className="space-y-3 max-w-4xl">
-        <a {...linkProps('/stacks/')} className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline">
-          <ArrowLeft className="h-3.5 w-3.5" /> All team stacks
+        <a {...linkProps('/stacks/')} className="text-sm console-link">
+          All team stacks
         </a>
-        <h1 className="text-3xl font-semibold tracking-tight text-stone-900">
+        <h1 className="text-3xl sm:text-4xl">
           Best AI coding tools for {stack.title.toLowerCase()}
         </h1>
-        <p className="text-base text-stone-600">{stack.description}</p>
-        <p className="font-mono text-xs text-stone-500">Typical environment: {stack.typicalRepo}</p>
+        <p className="text-base console-lede">{stack.description}</p>
+        <p className="measured text-xs console-muted">Environment: {stack.typicalRepo}</p>
       </div>
 
       <TeamStackSelector initialStack={stack.id} onNavigate={navigate} />
 
-      <div className="rounded-xl border border-stone-200 bg-white p-6 space-y-3">
-        <h2 className="text-lg font-semibold text-stone-900">Common pitfalls to avoid</h2>
-        <ul className="space-y-2 text-sm text-stone-700 list-disc pl-5">
+      <div className="console-panel p-6 space-y-3">
+        <h2 className="text-lg">Common pitfalls to avoid</h2>
+        <ul className="space-y-2 text-sm console-lede list-disc pl-5">
           {stack.avoidPatterns.map((p) => (
             <li key={p}>{p}</li>
           ))}
@@ -514,21 +609,26 @@ function TaskDetailView({
   navigate,
 }: {
   task: (typeof BENCHMARK_TASKS)[number];
-  linkProps: (r: string) => { href: string; onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void };
+  linkProps: (r: string) => {
+    href: string;
+    onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  };
   navigate: (r: string) => void;
 }) {
   const sortedTools = [...CODING_TOOLS].sort(
-    (a, b) => b.tasks[task.id].score - a.tasks[task.id].score,
+    (a, b) =>
+      getFitWeight(b.tasks[task.id].fit) - getFitWeight(a.tasks[task.id].fit) ||
+      a.name.localeCompare(b.name),
   );
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       <div className="space-y-3 max-w-4xl">
-        <a {...linkProps('/tasks/')} className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline">
-          <ArrowLeft className="h-3.5 w-3.5" /> All task benchmarks
+        <a {...linkProps('/tasks/')} className="text-sm console-link">
+          All task benchmarks
         </a>
-        <h1 className="text-3xl font-semibold tracking-tight text-stone-900">{task.title}</h1>
-        <p className="text-base text-stone-600">{task.scenario}</p>
+        <h1 className="text-3xl sm:text-4xl">{task.title}</h1>
+        <p className="text-base console-lede">{task.scenario}</p>
       </div>
 
       <TaskComparisonWorkbench
@@ -537,29 +637,29 @@ function TaskDetailView({
         onNavigate={navigate}
       />
 
-      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-2xs">
-        <table className="w-full min-w-[760px] border-collapse text-left text-xs">
+      <div className="console-panel overflow-x-auto">
+        <table className="console-table min-w-[760px]">
           <thead>
-            <tr className="border-b border-stone-200 bg-stone-50 font-mono text-[11px] uppercase tracking-wider text-stone-500">
-              <th className="px-4 py-3">Tool</th>
-              <th className="px-4 py-3">Fit</th>
-              <th className="px-4 py-3">Workflow mode</th>
-              <th className="px-4 py-3">Strength</th>
-              <th className="px-4 py-3">Tradeoff</th>
+            <tr>
+              <th>Tool</th>
+              <th>Fit</th>
+              <th>Workflow mode</th>
+              <th>Works well</th>
+              <th>Tradeoff</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100">
+          <tbody>
             {sortedTools.map((tool) => {
               const ev = tool.tasks[task.id];
               return (
                 <tr key={tool.id}>
-                  <td className="px-4 py-3 font-semibold text-stone-900">{tool.name}</td>
-                  <td className="px-4 py-3 font-mono font-semibold text-teal-800">
-                    {ev.fit} ({ev.score})
+                  <td className="font-medium">{tool.name}</td>
+                  <td>
+                    <span className={fitBadgeClass(ev.fit)}>{ev.fit}</span>
                   </td>
-                  <td className="px-4 py-3 text-stone-700">{ev.workflowMode}</td>
-                  <td className="px-4 py-3 text-stone-700">{ev.strength}</td>
-                  <td className="px-4 py-3 text-stone-500">{ev.tradeoff}</td>
+                  <td className="text-xs console-lede">{ev.workflowMode}</td>
+                  <td className="text-xs console-lede">{ev.strength}</td>
+                  <td className="text-xs console-muted">{ev.tradeoff}</td>
                 </tr>
               );
             })}

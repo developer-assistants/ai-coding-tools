@@ -1,18 +1,18 @@
 # AI Coding Tools Comparison and Team Stack Selector (developer-assistants/ai-coding-tools)
 
-> Side-by-side comparison of 16 AI coding tools on 6 identical engineering tasks, plus an interactive team stack decision matrix.
+> Side-by-side comparison of 16 AI coding tools on 6 identical engineering tasks, plus an interactive team stack decision matrix with verified November 2026 pricing.
 
 ## Summary
-This project extends the archived sourcegraph/awesome-code-ai catalog into a structured benchmark and team selector. It compares Cursor, GitHub Copilot, Claude Code, Windsurf, OpenAI Codex CLI, Aider, Cline, Continue, Kiro, Augment Code, Sourcegraph Cody, Amazon Q Developer, Google Gemini Code Assist, JetBrains AI Assistant, Tabnine, and TabbyML across 6 identical tasks: multi-file feature implementation, legacy codebase refactoring, production bug debugging, automated test generation, pull request code review, and inline autocomplete.
+This project extends the archived sourcegraph/awesome-code-ai catalog into a structured task evaluation and team selector. It compares Cursor, GitHub Copilot, Claude Code, Windsurf, OpenAI Codex CLI, Aider, Cline, Continue, Kiro, Augment Code, Sourcegraph Cody, Amazon Q Developer, Google Gemini Code Assist, JetBrains AI Assistant, Tabnine, and TabbyML across 6 identical tasks: multi-file feature implementation, legacy codebase refactoring, production bug debugging, automated test generation, pull request code review, and inline autocomplete.
 
-## Key Pages
+## Key pages
 - Workbench home: https://developer-assistants.github.io/ai-coding-tools/
 - Head-to-head comparisons: https://developer-assistants.github.io/ai-coding-tools/compare/
 - Team stack guides: https://developer-assistants.github.io/ai-coding-tools/stacks/
 - Identical task benchmarks: https://developer-assistants.github.io/ai-coding-tools/tasks/
 - Full 16-tool matrix: https://developer-assistants.github.io/ai-coding-tools/tools/
 
-## Popular Comparisons
+## Popular comparisons
 - Cursor vs GitHub Copilot: side-by-side comparison on identical tasks: https://developer-assistants.github.io/ai-coding-tools/compare/cursor-vs-github-copilot/
 - Claude Code vs Cursor: terminal agent vs agentic IDE: https://developer-assistants.github.io/ai-coding-tools/compare/claude-code-vs-cursor/
 - Windsurf vs Cursor: Cascade flows vs Cursor Agent: https://developer-assistants.github.io/ai-coding-tools/compare/windsurf-vs-cursor/
@@ -22,7 +22,7 @@ This project extends the archived sourcegraph/awesome-code-ai catalog into a str
 - TabbyML vs GitHub Copilot: self-hosted open source vs cloud SaaS: https://developer-assistants.github.io/ai-coding-tools/compare/tabby-vs-github-copilot/
 - Amazon Q Developer vs GitHub Copilot: AWS stack vs GitHub ecosystem: https://developer-assistants.github.io/ai-coding-tools/compare/amazon-q-vs-github-copilot/
 
-## Team Stack Guides
+## Team stack guides
 - TypeScript, React, and Next.js product teams: https://developer-assistants.github.io/ai-coding-tools/stacks/typescript-react/
 - Python, FastAPI, data, and ML teams: https://developer-assistants.github.io/ai-coding-tools/stacks/python-ml/
 - Java, Kotlin, and Spring Boot on JetBrains: https://developer-assistants.github.io/ai-coding-tools/stacks/java-kotlin-jetbrains/
@@ -30,6 +30,6 @@ This project extends the archived sourcegraph/awesome-code-ai catalog into a str
 - Self-hosted, air-gapped, and local LLM teams: https://developer-assistants.github.io/ai-coding-tools/stacks/self-hosted-airgapped/
 - Large polyglot monorepos and regulated enterprises: https://developer-assistants.github.io/ai-coding-tools/stacks/enterprise-monorepo/
 
-## Source & Repository
+## Source and repository
 - Repository: https://github.com/developer-assistants/ai-coding-tools
 - Inspired by: https://github.com/sourcegraph/awesome-code-ai

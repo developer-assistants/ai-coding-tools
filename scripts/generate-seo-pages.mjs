@@ -18,7 +18,7 @@ export { CODING_TOOLS } from ${JSON.stringify(path.resolve(ROOT_DIR, 'src/data/t
 export { BENCHMARK_TASKS } from ${JSON.stringify(path.resolve(ROOT_DIR, 'src/data/tasks.ts'))};
 export { STACK_PROFILES } from ${JSON.stringify(path.resolve(ROOT_DIR, 'src/data/stacks.ts'))};
 export { COMPARISON_PAIRS } from ${JSON.stringify(path.resolve(ROOT_DIR, 'src/data/comparisons.ts'))};
-export { getAverageTaskScore } from ${JSON.stringify(path.resolve(ROOT_DIR, 'src/engine/selector.ts'))};
+export { countStrongTasks, getFitWeight } from ${JSON.stringify(path.resolve(ROOT_DIR, 'src/engine/selector.ts'))};
 `;
 
 await esbuild.build({
@@ -33,7 +33,7 @@ await esbuild.build({
   outfile: bundleFile,
 });
 
-const { CODING_TOOLS, BENCHMARK_TASKS, STACK_PROFILES, COMPARISON_PAIRS, getAverageTaskScore } =
+const { CODING_TOOLS, BENCHMARK_TASKS, STACK_PROFILES, COMPARISON_PAIRS, countStrongTasks, getFitWeight } =
   await import(pathToFileURL(bundleFile).href);
 
 const baseHtml = fs.readFileSync(path.join(DIST_DIR, 'index.html'), 'utf8');
@@ -50,9 +50,9 @@ function navHtml() {
   return `<nav aria-label="Primary navigation"><ul>
     <li><a href="${BASE_PATH}/">Workbench</a></li>
     <li><a href="${BASE_PATH}/compare/">Comparisons</a></li>
-    <li><a href="${BASE_PATH}/stacks/">Team Stacks</a></li>
-    <li><a href="${BASE_PATH}/tasks/">Task Benchmarks</a></li>
-    <li><a href="${BASE_PATH}/tools/">All 16 Tools</a></li>
+    <li><a href="${BASE_PATH}/stacks/">Team stacks</a></li>
+    <li><a href="${BASE_PATH}/tasks/">Task benchmarks</a></li>
+    <li><a href="${BASE_PATH}/tools/">All 16 tools</a></li>
   </ul></nav>`;
 }
 
@@ -88,7 +88,7 @@ const staticRoutes = [];
 // 1. Home page "/"
 const homeToolsRows = CODING_TOOLS.map(
   (t) =>
-    `<tr><td><a href="${escapeHtml(t.website)}">${escapeHtml(t.name)}</a></td><td>${escapeHtml(t.editors.join(', '))}</td><td>${t.openSource ? 'Open source' : 'Proprietary'}</td><td>${escapeHtml(t.pricingSummary)}</td><td>${getAverageTaskScore(t)}/100</td></tr>`,
+    `<tr><td><a href="${escapeHtml(t.website)}">${escapeHtml(t.name)}</a></td><td>${escapeHtml(t.editors.join(', '))}</td><td>${t.openSource ? 'Open source' : 'Proprietary'}</td><td>${escapeHtml(t.pricingSummary)}</td><td>${countStrongTasks(t)}/6 strong tasks</td></tr>`,
 ).join('');
 
 const homeCompareLinks = COMPARISON_PAIRS.map(
@@ -111,10 +111,10 @@ staticRoutes.push({
   bodyHtml: `
     ${navHtml()}
     <main>
-      <h1>AI coding tools comparison and team stack selector</h1>
-      <p>Compare 16 AI coding assistants on 6 identical software engineering tasks and filter by editor, privacy rules, budget, and language stack.</p>
-      <h2>16 AI coding tools compared</h2>
-      <table><thead><tr><th>Tool</th><th>Editors</th><th>License</th><th>Pricing</th><th>Avg Task Score</th></tr></thead><tbody>${homeToolsRows}</tbody></table>
+      <h1>Compare AI coding tools on real tasks</h1>
+      <p>Evaluate 16 AI coding assistants on six identical software engineering tasks and filter by editor, privacy model, budget, and language stack.</p>
+      <h2>All 16 AI coding tools</h2>
+      <table><thead><tr><th>Tool</th><th>Editors</th><th>License</th><th>Pricing (2026)</th><th>Strong tasks</th></tr></thead><tbody>${homeToolsRows}</tbody></table>
       <h2>Head-to-head comparisons</h2>
       <ul>${homeCompareLinks}</ul>
       <h2>Recommendations by team stack</h2>
@@ -153,7 +153,7 @@ for (const pair of COMPARISON_PAIRS) {
   const taskRows = BENCHMARK_TASKS.map((task) => {
     const a = toolA.tasks[task.id];
     const b = toolB.tasks[task.id];
-    return `<tr><td>${escapeHtml(task.title)}</td><td>${escapeHtml(a.fit)} (${a.score}/100): ${escapeHtml(a.strength)}</td><td>${escapeHtml(b.fit)} (${b.score}/100): ${escapeHtml(b.strength)}</td></tr>`;
+    return `<tr><td>${escapeHtml(task.title)}</td><td>${escapeHtml(a.fit)}: ${escapeHtml(a.strength)}</td><td>${escapeHtml(b.fit)}: ${escapeHtml(b.strength)}</td></tr>`;
   }).join('');
 
   const faqsHtml = pair.faqs
@@ -197,7 +197,7 @@ staticRoutes.push({
   ldGraph: [
     makeBreadcrumbLdJson([
       { name: 'Home', url: `${BASE_URL}/` },
-      { name: 'Team Stacks', url: `${BASE_URL}/stacks/` },
+      { name: 'Team stacks', url: `${BASE_URL}/stacks/` },
     ]),
   ],
   bodyHtml: `
@@ -227,7 +227,7 @@ for (const stack of STACK_PROFILES) {
     ldGraph: [
       makeBreadcrumbLdJson([
         { name: 'Home', url: `${BASE_URL}/` },
-        { name: 'Team Stacks', url: `${BASE_URL}/stacks/` },
+        { name: 'Team stacks', url: `${BASE_URL}/stacks/` },
         { name: stack.shortTitle, url: `${BASE_URL}/stacks/${stack.slug}/` },
       ]),
       makeFaqLdJson(stack.faqs),
@@ -256,7 +256,7 @@ staticRoutes.push({
   ldGraph: [
     makeBreadcrumbLdJson([
       { name: 'Home', url: `${BASE_URL}/` },
-      { name: 'Task Benchmarks', url: `${BASE_URL}/tasks/` },
+      { name: 'Task benchmarks', url: `${BASE_URL}/tasks/` },
     ]),
   ],
   bodyHtml: `
@@ -271,12 +271,14 @@ staticRoutes.push({
 // 7. Individual task pages (6 routes)
 for (const task of BENCHMARK_TASKS) {
   const sorted = [...CODING_TOOLS].sort(
-    (a, b) => b.tasks[task.id].score - a.tasks[task.id].score,
+    (a, b) =>
+      getFitWeight(b.tasks[task.id].fit) - getFitWeight(a.tasks[task.id].fit) ||
+      a.name.localeCompare(b.name),
   );
   const rows = sorted
     .map((t) => {
       const ev = t.tasks[task.id];
-      return `<tr><td>${escapeHtml(t.name)}</td><td>${escapeHtml(ev.fit)} (${ev.score}/100)</td><td>${escapeHtml(ev.workflowMode)}</td><td>${escapeHtml(ev.strength)}</td><td>${escapeHtml(ev.tradeoff)}</td></tr>`;
+      return `<tr><td>${escapeHtml(t.name)}</td><td>${escapeHtml(ev.fit)}</td><td>${escapeHtml(ev.workflowMode)}</td><td>${escapeHtml(ev.strength)}</td><td>${escapeHtml(ev.tradeoff)}</td></tr>`;
     })
     .join('');
   const faqsHtml = task.faqs
@@ -290,7 +292,7 @@ for (const task of BENCHMARK_TASKS) {
     ldGraph: [
       makeBreadcrumbLdJson([
         { name: 'Home', url: `${BASE_URL}/` },
-        { name: 'Task Benchmarks', url: `${BASE_URL}/tasks/` },
+        { name: 'Task benchmarks', url: `${BASE_URL}/tasks/` },
         { name: task.shortTitle, url: `${BASE_URL}/tasks/${task.slug}/` },
       ]),
       makeFaqLdJson(task.faqs),
@@ -300,8 +302,8 @@ for (const task of BENCHMARK_TASKS) {
       <main>
         <h1>${escapeHtml(task.title)}</h1>
         <p>${escapeHtml(task.scenario)}</p>
-        <h2>All 16 tools ranked on this task</h2>
-        <table><thead><tr><th>Tool</th><th>Score</th><th>Workflow</th><th>Strength</th><th>Tradeoff</th></tr></thead><tbody>${rows}</tbody></table>
+        <h2>All 16 tools evaluated on this task</h2>
+        <table><thead><tr><th>Tool</th><th>Fit</th><th>Workflow</th><th>Works well</th><th>Tradeoff</th></tr></thead><tbody>${rows}</tbody></table>
         <h2>Frequently asked questions</h2>
         ${faqsHtml}
       </main>
@@ -314,23 +316,22 @@ staticRoutes.push({
   route: '/tools/',
   title: 'All 16 AI Coding Tools Directory & Capability Matrix (2026)',
   description:
-    'Searchable comparison matrix of 16 AI coding tools covering editors, multi-file agents, inline autocomplete, self-hosting, BYOK, MCP support, and pricing.',
+    'Searchable comparison matrix of 16 AI coding tools covering editors, multi-file agents, inline autocomplete, self-hosting, BYOK, MCP support, and verified 2026 pricing.',
   ldGraph: [
     makeBreadcrumbLdJson([
       { name: 'Home', url: `${BASE_URL}/` },
-      { name: 'All 16 Tools', url: `${BASE_URL}/tools/` },
+      { name: 'All 16 tools', url: `${BASE_URL}/tools/` },
     ]),
   ],
   bodyHtml: `
     ${navHtml()}
     <main>
       <h1>All 16 AI coding tools compared</h1>
-      <table><thead><tr><th>Tool</th><th>Editors</th><th>License</th><th>Pricing</th><th>Avg Task Score</th></tr></thead><tbody>${homeToolsRows}</tbody></table>
+      <table><thead><tr><th>Tool</th><th>Editors</th><th>License</th><th>Pricing (2026)</th><th>Strong tasks</th></tr></thead><tbody>${homeToolsRows}</tbody></table>
     </main>
   `,
 });
 
-// Write static HTML pages
 for (const page of staticRoutes) {
   const canonicalUrl = page.route === '/' ? `${BASE_URL}/` : `${BASE_URL}${page.route}`;
   let html = baseHtml;
@@ -368,8 +369,6 @@ for (const page of staticRoutes) {
     );
   }
 
-  // Inject crawlable semantic HTML inside #root so non-JS crawlers and LLMs read full content immediately,
-  // while React createRoot replaces it smoothly on hydration.
   html = html.replace(
     '<div id="root"></div>',
     `<div id="root">${page.bodyHtml}</div>`,
@@ -383,10 +382,8 @@ for (const page of staticRoutes) {
   fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
 }
 
-// Write 404.html fallback for GitHub Pages
 fs.writeFileSync(path.join(DIST_DIR, '404.html'), baseHtml, 'utf8');
 
-// Write sitemap.xml
 const sitemapUrls = staticRoutes
   .map((p) => {
     const loc = p.route === '/' ? `${BASE_URL}/` : `${BASE_URL}${p.route}`;
@@ -398,32 +395,30 @@ const sitemapUrls = staticRoutes
 const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapUrls}\n</urlset>\n`;
 fs.writeFileSync(path.join(DIST_DIR, 'sitemap.xml'), sitemapXml, 'utf8');
 
-// Write robots.txt
 const robotsTxt = `User-agent: *\nAllow: /\n\nSitemap: ${BASE_URL}/sitemap.xml\n`;
 fs.writeFileSync(path.join(DIST_DIR, 'robots.txt'), robotsTxt, 'utf8');
 
-// Write llms.txt to both dist/ and repo root
 const llmsTxt = `# AI Coding Tools Comparison and Team Stack Selector (developer-assistants/ai-coding-tools)
 
-> Side-by-side comparison of 16 AI coding tools on 6 identical engineering tasks, plus an interactive team stack decision matrix.
+> Side-by-side comparison of 16 AI coding tools on 6 identical engineering tasks, plus an interactive team stack decision matrix with verified November 2026 pricing.
 
 ## Summary
-This project extends the archived sourcegraph/awesome-code-ai catalog into a structured benchmark and team selector. It compares Cursor, GitHub Copilot, Claude Code, Windsurf, OpenAI Codex CLI, Aider, Cline, Continue, Kiro, Augment Code, Sourcegraph Cody, Amazon Q Developer, Google Gemini Code Assist, JetBrains AI Assistant, Tabnine, and TabbyML across 6 identical tasks: multi-file feature implementation, legacy codebase refactoring, production bug debugging, automated test generation, pull request code review, and inline autocomplete.
+This project extends the archived sourcegraph/awesome-code-ai catalog into a structured task evaluation and team selector. It compares Cursor, GitHub Copilot, Claude Code, Windsurf, OpenAI Codex CLI, Aider, Cline, Continue, Kiro, Augment Code, Sourcegraph Cody, Amazon Q Developer, Google Gemini Code Assist, JetBrains AI Assistant, Tabnine, and TabbyML across 6 identical tasks: multi-file feature implementation, legacy codebase refactoring, production bug debugging, automated test generation, pull request code review, and inline autocomplete.
 
-## Key Pages
+## Key pages
 - Workbench home: ${BASE_URL}/
 - Head-to-head comparisons: ${BASE_URL}/compare/
 - Team stack guides: ${BASE_URL}/stacks/
 - Identical task benchmarks: ${BASE_URL}/tasks/
 - Full 16-tool matrix: ${BASE_URL}/tools/
 
-## Popular Comparisons
+## Popular comparisons
 ${COMPARISON_PAIRS.map((c) => `- ${c.title}: ${BASE_URL}/compare/${c.slug}/`).join('\n')}
 
-## Team Stack Guides
+## Team stack guides
 ${STACK_PROFILES.map((s) => `- ${s.title}: ${BASE_URL}/stacks/${s.slug}/`).join('\n')}
 
-## Source & Repository
+## Source and repository
 - Repository: https://github.com/developer-assistants/ai-coding-tools
 - Inspired by: https://github.com/sourcegraph/awesome-code-ai
 `;
