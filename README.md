@@ -11,6 +11,8 @@ Built as a practical successor to the archived [`sourcegraph/awesome-code-ai`](h
 
 Live interactive workbench: [https://developer-assistants.github.io/ai-coding-tools/](https://developer-assistants.github.io/ai-coding-tools/)
 
+![AI Coding Tools same-task comparison workbench](./docs/assets/workbench-preview.png)
+
 ## Same-task comparison across 16 AI coding tools
 
 Every tool is evaluated qualitatively (`Strong`, `Good`, `Partial`, `Limited`) against the same 6 tasks based on native workflow support, context handling, and verification loops:
